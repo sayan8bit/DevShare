@@ -10,14 +10,14 @@
 // ==========================================
 
 const githubConfig = {
-    owner: "YOUR_GITHUB_USERNAME", // e.g., "sayan-dev"
-    repo: "YOUR_REPOSITORY_NAME", // e.g., "developer-share-project"
+    owner: "sayan8bit", // e.g., "sayan-dev"
+    repo: "developer-project-showcase", // e.g., "developer-share-project"
     branch: "main",
     filePath: "data/projects.json" // the file we just created
 };
 
 // Check if configured
-const isGithubConfigured = githubConfig.owner !== "YOUR_GITHUB_USERNAME";
+const isGithubConfigured = githubConfig.owner !== "sayan8bit";
 
 // State management
 let projects = [];
