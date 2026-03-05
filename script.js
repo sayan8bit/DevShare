@@ -9,15 +9,18 @@
 //    Give it the "repo" scope. When you try to save a project, the app will ask for this token.
 // ==========================================
 
-const githubConfig = {
-    owner: "sayan8bit", // e.g., "sayan-dev"
-    repo: "DevShare", // e.g., "developer-share-project"
+// Store the default fallback config locally
+let githubConfig = {
+    owner: localStorage.getItem('sayan_devshare_owner') || "",
+    repo: localStorage.getItem('sayan_devshare_repo') || "",
     branch: "main",
     filePath: "data/projects.json" // the file we just created
 };
 
 // Check if configured
-const isGithubConfigured = githubConfig.owner !== "sayan8bit";
+const isGithubConfigured = function () {
+    return githubConfig.owner.trim() !== "" && githubConfig.repo.trim() !== "";
+};
 
 // State management
 let projects = [];
@@ -35,6 +38,13 @@ const closeModalBtn = document.getElementById('closeModalBtn');
 const cancelBtn = document.getElementById('cancelBtn');
 const projectForm = document.getElementById('projectForm');
 const filtersSection = document.querySelector('.filters');
+
+// Settings DOM Elements
+const settingsModal = document.getElementById('settingsModal');
+const openSettingsBtn = document.getElementById('openSettingsBtn');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
+const settingsForm = document.getElementById('settingsForm');
 
 // Initialization
 function init() {
@@ -75,9 +85,7 @@ function showConfigAlert(customMessage = null) {
         <h3 style="color: var(--accent-primary); margin-bottom: 0.5rem;"><i class="fa-brands fa-github"></i> Setup Required for Commits</h3>
         <p style="color: var(--text-primary); font-size: 0.95rem; line-height: 1.5;">
             ${customMessage || `To enable saving directly to GitHub via the frontend:<br>
-            1. Open <code>script.js</code> and update <code>githubConfig.owner</code> and <code>githubConfig.repo</code>.<br>
-            2. Push your code to your GitHub repo.<br>
-            3. Upon publishing, the app will ask for a Personal Access Token.`}
+            Please click the gear icon <i class="fa-solid fa-gear"></i> in the top right corner to configure your repository and access token.`}
         </p>
     `;
     filtersSection.parentNode.insertBefore(banner, filtersSection.nextSibling);
@@ -351,6 +359,58 @@ function setupEventListeners() {
         if (e.target === postModal) closeModal();
     });
 
+    // --- Settings Modal Logic ---
+    const openSettings = () => {
+        document.getElementById('sOwner').value = githubConfig.owner;
+        document.getElementById('sRepo').value = githubConfig.repo;
+        document.getElementById('sToken').value = ''; // Do NOT display actual token for safety
+
+        settingsModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closeSettings = () => {
+        settingsModal.classList.remove('active');
+        document.body.style.overflow = '';
+    };
+
+    openSettingsBtn.addEventListener('click', openSettings);
+    closeSettingsBtn.addEventListener('click', closeSettings);
+    cancelSettingsBtn.addEventListener('click', closeSettings);
+
+    settingsModal.addEventListener('click', (e) => {
+        if (e.target === settingsModal) closeSettings();
+    });
+
+    settingsForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const owner = document.getElementById('sOwner').value.trim();
+        const repo = document.getElementById('sRepo').value.trim();
+        const token = document.getElementById('sToken').value.trim();
+
+        // Save owner/repo locally
+        localStorage.setItem('sayan_devshare_owner', owner);
+        localStorage.setItem('sayan_devshare_repo', repo);
+
+        // Update in-memory config
+        githubConfig.owner = owner;
+        githubConfig.repo = repo;
+
+        // Only update token if they typed something new in
+        if (token !== '') {
+            localStorage.setItem('github_pat', token);
+        }
+
+        closeSettings();
+
+        // Remove missing config banner and blindly refetch cleanly
+        const banner = document.getElementById('github-alert');
+        if (banner) banner.remove();
+        fetchProjectsFromGithub();
+    });
+    // ----------------------------
+
     projectForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -394,7 +454,7 @@ function setupEventListeners() {
         submitBtn.textContent = 'Committing...';
         submitBtn.disabled = true;
 
-        if (isGithubConfigured) {
+        if (isGithubConfigured()) {
             const message = existingId ? `Update project: ${title}` : `Add project: ${title}`;
             const success = await commitToGithub(JSON.stringify(projects, null, 2), message);
             if (!success) {
@@ -403,7 +463,7 @@ function setupEventListeners() {
                 closeModal();
             }
         } else {
-            alert("Configure GitHub Settings first at the top of script.js to perform commits.");
+            alert("Click the Settings Gear icon in the Navbar first to configure your GitHub connection.");
             projects = backup;
         }
 
