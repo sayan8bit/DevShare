@@ -49,10 +49,24 @@ const filtersSection = document.querySelector('.filters');
 
 // Settings DOM Elements
 const settingsModal = document.getElementById('settingsModal');
-const openSettingsBtn = document.getElementById('openSettingsBtn');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const cancelSettingsBtn = document.getElementById('cancelSettingsBtn');
 const settingsForm = document.getElementById('settingsForm');
+
+let pendingAction = null;
+
+function openTokenModal(action = null) {
+    pendingAction = action;
+    document.getElementById('sToken').value = '';
+    settingsModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeTokenModal() {
+    settingsModal.classList.remove('active');
+    document.body.style.overflow = '';
+    pendingAction = null;
+}
 
 // Initialization
 function init() {
@@ -76,7 +90,7 @@ function showConfigAlert(customMessage = null) {
         <h3 style="color: var(--accent-primary); margin-bottom: 0.5rem;"><i class="fa-brands fa-github"></i> Setup Required for Commits</h3>
         <p style="color: var(--text-primary); font-size: 0.95rem; line-height: 1.5;">
             ${customMessage || `To enable saving directly to GitHub via the frontend:<br>
-            Please click the gear icon <i class="fa-solid fa-gear"></i> in the top right corner to configure your repository and access token.`}
+            A GitHub Personal Access Token is required to post or edit projects.`}
         </p>
     `;
     filtersSection.parentNode.insertBefore(banner, filtersSection.nextSibling);
@@ -112,15 +126,15 @@ function b64EncodeUnicode(str) {
 // Commit to GitHub
 async function commitToGithub(jsonContent, commitMessage) {
     if (githubConfig.owner === "YOUR_GITHUB_USERNAME" || githubConfig.repo === "YOUR_REPOSITORY_NAME") {
-        alert("Action Cancelled: You must configure your GitHub Username and Repository in the Settings (Gear Icon) before publishing!");
-        openSettings();
+        alert("Action Cancelled: You must configure your GitHub Username and Repository in the setting before publishing!");
+        openTokenModal();
         return false;
     }
 
     let token = localStorage.getItem('github_pat');
     if (!token) {
-        alert("Action Cancelled: A GitHub Personal Access Token is required to commit changes. \n\nPlease click the Settings gear icon in the top right to set your token securely.");
-        openSettings();
+        alert("Action Cancelled: A GitHub Personal Access Token is required to commit changes.");
+        openTokenModal();
         return false;
     }
 
@@ -347,7 +361,14 @@ function setupEventListeners() {
         document.getElementById('submitProjectBtn').textContent = 'Publish Project';
     };
 
-    openModalBtn.addEventListener('click', openModal);
+    openModalBtn.addEventListener('click', () => {
+        if (!localStorage.getItem('github_pat')) {
+            openTokenModal(openModal);
+        } else {
+            openModal();
+        }
+    });
+
     closeModalBtn.addEventListener('click', closeModal);
     cancelBtn.addEventListener('click', closeModal);
 
@@ -356,54 +377,34 @@ function setupEventListeners() {
     });
 
     // --- Settings Modal Logic ---
-    const openSettings = () => {
-        document.getElementById('sOwner').value = githubConfig.owner === "YOUR_GITHUB_USERNAME" ? "" : githubConfig.owner;
-        document.getElementById('sRepo').value = githubConfig.repo === "YOUR_REPOSITORY_NAME" ? "" : githubConfig.repo;
-        document.getElementById('sToken').value = ''; // Do NOT display actual token for safety
-
-        settingsModal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    };
-
-    const closeSettings = () => {
-        settingsModal.classList.remove('active');
-        document.body.style.overflow = '';
-    };
-
-    openSettingsBtn.addEventListener('click', openSettings);
-    closeSettingsBtn.addEventListener('click', closeSettings);
-    cancelSettingsBtn.addEventListener('click', closeSettings);
+    closeSettingsBtn.addEventListener('click', closeTokenModal);
+    cancelSettingsBtn.addEventListener('click', closeTokenModal);
 
     settingsModal.addEventListener('click', (e) => {
-        if (e.target === settingsModal) closeSettings();
+        if (e.target === settingsModal) closeTokenModal();
     });
 
     settingsForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
-        const owner = document.getElementById('sOwner').value.trim();
-        const repo = document.getElementById('sRepo').value.trim();
         const token = document.getElementById('sToken').value.trim();
-
-        // Save owner/repo locally
-        localStorage.setItem('sayan_devshare_owner', owner);
-        localStorage.setItem('sayan_devshare_repo', repo);
-
-        // Update in-memory config
-        githubConfig.owner = owner;
-        githubConfig.repo = repo;
 
         // Only update token if they typed something new in
         if (token !== '') {
             localStorage.setItem('github_pat', token);
         }
 
-        closeSettings();
+        const actionToRun = pendingAction;
+        closeTokenModal(); // This also sets pendingAction to null
 
         // Remove missing config banner and blindly refetch cleanly
         const banner = document.getElementById('github-alert');
         if (banner) banner.remove();
-        fetchProjectsFromGithub();
+        fetchProjects();
+
+        if (actionToRun) {
+            actionToRun();
+        }
     });
     // ----------------------------
 
