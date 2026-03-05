@@ -1,19 +1,5 @@
 [
   {
-    "id": "1",
-    "title": "Neon Weather Dashboard",
-    "description": "A beautiful, neon-themed weather dashboard built using OpenWeather API. Features geolocation, dynamic background changes based on time, and a sleek glassmorphic UI.",
-    "image": "https://images.unsplash.com/photo-1592210454359-9043f067919b?w=800&q=80",
-    "github": "https://github.com",
-    "demo": "https://example.com",
-    "tags": [
-      "HTML",
-      "CSS",
-      "JavaScript"
-    ],
-    "createdAt": 1709664000000
-  },
-  {
     "id": "2",
     "title": "Aura Task Manager",
     "description": "A minimalist drag-and-drop task management tool inspired by Kanban boards. Built with React and framer-motion for smooth, fluid animations across the board.",
