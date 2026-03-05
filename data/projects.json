@@ -1,17 +1,5 @@
 [
   {
-    "id": "1772724195842",
-    "title": "demo project",
-    "description": "it is a demo ",
-    "image": "",
-    "github": "https://github.com",
-    "demo": "https://github.com",
-    "tags": [
-      "java"
-    ],
-    "createdAt": 1772724195842
-  },
-  {
     "id": "1",
     "title": "Neon Weather Dashboard",
     "description": "A beautiful, neon-themed weather dashboard built using OpenWeather API. Features geolocation, dynamic background changes based on time, and a sleek glassmorphic UI.",
