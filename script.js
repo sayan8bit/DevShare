@@ -11,7 +11,7 @@
 
 const githubConfig = {
     owner: "sayan8bit", // e.g., "sayan-dev"
-    repo: "developer-project-showcase", // e.g., "developer-share-project"
+    repo: "DevShare", // e.g., "developer-share-project"
     branch: "main",
     filePath: "data/projects.json" // the file we just created
 };
