@@ -24,6 +24,9 @@
                 <span>DevShare</span>
             </div>
             <div class="nav-actions">
+                <button id="openSettingsBtn" class="btn btn-secondary" title="App Settings">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
                 <button id="openModalBtn" class="btn btn-primary">
                     <i class="fa-solid fa-plus"></i> Post Project
                 </button>
@@ -98,6 +101,47 @@
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="submitProjectBtn">Publish Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>GitHub Configuration</h2>
+                <button class="close-btn" id="closeSettingsBtn"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <form id="settingsForm" class="modal-form">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                    Configure your GitHub repository to securely sync and store projects directly to your repository via
+                    the API.
+                </p>
+
+                <div class="form-group">
+                    <label for="sOwner">GitHub Username / Organization</label>
+                    <input type="text" id="sOwner" required placeholder="e.g. sayan-dev">
+                </div>
+
+                <div class="form-group">
+                    <label for="sRepo">Repository Name</label>
+                    <input type="text" id="sRepo" required placeholder="e.g. developer-share-project">
+                </div>
+
+                <div class="form-group">
+                    <label for="sToken">Personal Access Token (PAT) <i class="fa-solid fa-lock"
+                            style="color: var(--success); font-size: 0.8rem; margin-left: 4px;"></i></label>
+                    <input type="password" id="sToken" placeholder="Leave blank to keep existing token">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">
+                        This is securely saved in your browser's LocalStorage and is <strong>never</strong> exposed in
+                        the code.
+                    </p>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelSettingsBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Config</button>
                 </div>
             </form>
         </div>
