@@ -9,12 +9,20 @@
 //    Give it the "repo" scope. When you try to save a project, the app will ask for this token.
 // ==========================================
 
-// Store the default fallback config locally
+// --- GitHub Configuration ---
+// We try to auto-detect the repository if hosted on GitHub Pages
+let autoOwner = "";
+let autoRepo = "";
+if (window.location.hostname.endsWith('.github.io')) {
+    autoOwner = window.location.hostname.replace('.github.io', '');
+    autoRepo = window.location.pathname.split('/')[1] || "";
+}
+
 let githubConfig = {
-    owner: localStorage.getItem('sayan_devshare_owner') || "",
-    repo: localStorage.getItem('sayan_devshare_repo') || "",
+    owner: localStorage.getItem('sayan_devshare_owner') || autoOwner || "YOUR_GITHUB_USERNAME",
+    repo: localStorage.getItem('sayan_devshare_repo') || autoRepo || "YOUR_REPOSITORY_NAME",
     branch: "main",
-    filePath: "data/projects.json" // the file we just created
+    filePath: "data/projects.json"
 };
 
 // Check if configured
@@ -49,24 +57,7 @@ const settingsForm = document.getElementById('settingsForm');
 // Initialization
 function init() {
     setupEventListeners();
-
-    if (isGithubConfigured) {
-        fetchProjectsFromGithub();
-    } else {
-        showConfigAlert();
-        // Fallback to local loading if possible (will only work via a server locally)
-        try {
-            fetch('data/projects.json')
-                .then(res => res.json())
-                .then(data => {
-                    projects = data;
-                    renderProjects();
-                })
-                .catch(e => renderProjects());
-        } catch (e) {
-            renderProjects();
-        }
-    }
+    fetchProjects(); // Load for everyone immediately
 }
 
 function showConfigAlert(customMessage = null) {
@@ -91,38 +82,25 @@ function showConfigAlert(customMessage = null) {
     filtersSection.parentNode.insertBefore(banner, filtersSection.nextSibling);
 }
 
-// Fetch from GitHub
-async function fetchProjectsFromGithub() {
+// Fetch projects for EVERYONE (no API limits, no setup needed)
+async function fetchProjects() {
     try {
-        const url = `https://api.github.com/repos/${githubConfig.owner}/${githubConfig.repo}/contents/${githubConfig.filePath}?ref=${githubConfig.branch}`;
-        const response = await fetch(url + "&t=" + Date.now(), { // timestamp to prevent caching
-            headers: { "Accept": "application/vnd.github.v3+json" }
-        });
-
-        if (!response.ok) {
-            if (response.status === 404) {
-                projects = [];
-                renderProjects();
-                return;
-            }
-            throw new Error(`Failed to fetch from GitHub: ${response.status}`);
-        }
+        // Fetch directly from the static file so it works for all visitors
+        const response = await fetch('data/projects.json?t=' + Date.now()); // cache buster
+        if (!response.ok) throw new Error('Could not load projects.json. Status: ' + response.status);
 
         const data = await response.json();
-        fileSha = data.sha; // Save SHA for updates
-
-        // Decode Base64 content from GitHub
-        const content = decodeURIComponent(escape(atob(data.content)));
-        if (content.trim() !== '') {
-            projects = JSON.parse(content);
-        } else {
-            projects = [];
-        }
+        projects = data;
         renderProjects();
-
     } catch (error) {
-        console.error("Error fetching projects:", error);
-        showConfigAlert("Could not read projects.json from GitHub. Make sure your repository is public or your owner/repo settings are correct.");
+        console.error("Error loading projects:", error);
+        projectsGrid.innerHTML = `
+            <div class="no-results" style="color: var(--danger);">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <h3>Error Loading Projects</h3>
+                <p>Could not load the project data file.</p>
+            </div>
+        `;
     }
 }
 
@@ -133,28 +111,42 @@ function b64EncodeUnicode(str) {
 
 // Commit to GitHub
 async function commitToGithub(jsonContent, commitMessage) {
-    let token = localStorage.getItem('github_pat');
+    if (githubConfig.owner === "YOUR_GITHUB_USERNAME" || githubConfig.repo === "YOUR_REPOSITORY_NAME") {
+        alert("Action Cancelled: You must configure your GitHub Username and Repository in the Settings (Gear Icon) before publishing!");
+        openSettings();
+        return false;
+    }
 
+    let token = localStorage.getItem('github_pat');
     if (!token) {
-        token = prompt("Please enter your GitHub Personal Access Token (PAT) to commit this to the repository.\n\nNote: This will be saved in your browser's LocalStorage securely.");
-        if (!token) {
-            alert("Cancelling action. A token is required to make a commit via the GitHub API.");
-            return false;
-        }
-        localStorage.setItem('github_pat', token);
+        alert("Action Cancelled: A GitHub Personal Access Token is required to commit changes. \n\nPlease click the Settings gear icon in the top right to set your token securely.");
+        openSettings();
+        return false;
     }
 
     try {
         const url = `https://api.github.com/repos/${githubConfig.owner}/${githubConfig.repo}/contents/${githubConfig.filePath}`;
 
+        // 1. Get the current SHA for the file so we can overwrite it
+        let currentSha = null;
+        const shaResponse = await fetch(url + `?ref=${githubConfig.branch}`, {
+            headers: { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${token}` }
+        });
+
+        if (shaResponse.ok) {
+            const shaData = await shaResponse.json();
+            currentSha = shaData.sha;
+        }
+
+        // 2. Put the new content
         const payload = {
             message: commitMessage,
             content: b64EncodeUnicode(jsonContent),
             branch: githubConfig.branch
         };
 
-        if (fileSha) {
-            payload.sha = fileSha;
+        if (currentSha) {
+            payload.sha = currentSha;
         }
 
         const response = await fetch(url, {
@@ -181,7 +173,11 @@ async function commitToGithub(jsonContent, commitMessage) {
         }
 
         const responseData = await response.json();
-        fileSha = responseData.content.sha; // Update SHA for next time
+
+        // Note: GitHub Pages can take ~1-2 minutes to deploy the static file change. 
+        // We warn the user about this latency since fetch() pulls the static file.
+        alert("✅ Success! Your changes have been pushed to GitHub.\n\nNote: GitHub Pages may take 1-2 minutes to update the live site for other people. You may need to refresh in a couple of minutes to see the changes permanently saved.");
+
         return true;
 
     } catch (error) {
@@ -361,8 +357,8 @@ function setupEventListeners() {
 
     // --- Settings Modal Logic ---
     const openSettings = () => {
-        document.getElementById('sOwner').value = githubConfig.owner;
-        document.getElementById('sRepo').value = githubConfig.repo;
+        document.getElementById('sOwner').value = githubConfig.owner === "YOUR_GITHUB_USERNAME" ? "" : githubConfig.owner;
+        document.getElementById('sRepo').value = githubConfig.repo === "YOUR_REPOSITORY_NAME" ? "" : githubConfig.repo;
         document.getElementById('sToken').value = ''; // Do NOT display actual token for safety
 
         settingsModal.classList.add('active');
@@ -454,17 +450,12 @@ function setupEventListeners() {
         submitBtn.textContent = 'Committing...';
         submitBtn.disabled = true;
 
-        if (isGithubConfigured()) {
-            const message = existingId ? `Update project: ${title}` : `Add project: ${title}`;
-            const success = await commitToGithub(JSON.stringify(projects, null, 2), message);
-            if (!success) {
-                projects = backup;
-            } else {
-                closeModal();
-            }
-        } else {
-            alert("Click the Settings Gear icon in the Navbar first to configure your GitHub connection.");
+        const message = existingId ? `Update project: ${title}` : `Add project: ${title}`;
+        const success = await commitToGithub(JSON.stringify(projects, null, 2), message);
+        if (!success) {
             projects = backup;
+        } else {
+            closeModal();
         }
 
         submitBtn.textContent = oldText;
