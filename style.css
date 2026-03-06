@@ -309,9 +309,14 @@ h6 {
     z-index: 10;
 }
 
-.project-card:hover .card-actions,
-.card-actions:focus-within {
+.project-card:hover .card-actions.admin-only-actions,
+.card-actions.admin-only-actions:focus-within {
     opacity: 1;
+}
+
+/* Base state for admin actions is display none, turned on via JS class */
+.admin-mode .admin-only-actions {
+    display: flex !important;
 }
 
 .action-btn {
