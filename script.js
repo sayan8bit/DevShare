@@ -163,8 +163,15 @@ async function commitToGithub(jsonContent, commitMessage) {
 
         // 1. Get the current SHA for the file so we can overwrite it
         let currentSha = null;
-        const shaResponse = await fetch(url + `?ref=${githubConfig.branch}`, {
-            headers: { "Accept": "application/vnd.github.v3+json", "Authorization": `token ${token}` }
+        // Add cache-busting to prevent the browser from caching the old SHA between quick saves
+        const shaResponse = await fetch(url + `?ref=${githubConfig.branch}&t=${Date.now()}`, {
+            method: 'GET',
+            headers: {
+                "Accept": "application/vnd.github.v3+json",
+                "Authorization": `token ${token}`,
+                "Cache-Control": "no-cache"
+            },
+            cache: 'no-store'
         });
 
         if (shaResponse.ok) {
