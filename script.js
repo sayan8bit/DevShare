@@ -19,8 +19,8 @@ if (window.location.hostname.endsWith('.github.io')) {
 }
 
 let githubConfig = {
-    owner: localStorage.getItem('sayan_devshare_owner') || autoOwner || "YOUR_GITHUB_USERNAME",
-    repo: localStorage.getItem('sayan_devshare_repo') || autoRepo || "YOUR_REPOSITORY_NAME",
+    owner: localStorage.getItem('sayan_devshare_owner') || autoOwner || "sayan8bit",
+    repo: localStorage.getItem('sayan_devshare_repo') || autoRepo || "DevShare",
     branch: "main",
     filePath: "data/projects.json"
 };
@@ -46,6 +46,7 @@ const closeModalBtn = document.getElementById('closeModalBtn');
 const cancelBtn = document.getElementById('cancelBtn');
 const projectForm = document.getElementById('projectForm');
 const filtersSection = document.querySelector('.filters');
+const adminLockBtn = document.getElementById('adminLockBtn');
 
 // Settings DOM Elements
 const settingsModal = document.getElementById('settingsModal');
@@ -96,9 +97,28 @@ function showConfigAlert(customMessage = null) {
     filtersSection.parentNode.insertBefore(banner, filtersSection.nextSibling);
 }
 
+// Check API admin status immediately
+function checkAdminMode() {
+    const hasToken = localStorage.getItem('github_pat');
+    const lockIcon = adminLockBtn.querySelector('i');
+
+    if (hasToken) {
+        lockIcon.className = 'fa-solid fa-lock-open';
+        lockIcon.style.color = 'var(--accent-secondary)';
+        openModalBtn.style.display = 'inline-flex';
+        projectsGrid.classList.add('admin-mode');
+    } else {
+        lockIcon.className = 'fa-solid fa-lock';
+        lockIcon.style.color = 'var(--text-muted)';
+        openModalBtn.style.display = 'none';
+        projectsGrid.classList.remove('admin-mode');
+    }
+}
+
 // Fetch projects for EVERYONE (no API limits, no setup needed)
 async function fetchProjects() {
     try {
+        checkAdminMode();
         // Fetch directly from the static file so it works for all visitors
         const response = await fetch('data/projects.json?t=' + Date.now()); // cache buster
         if (!response.ok) throw new Error('Could not load projects.json. Status: ' + response.status);
@@ -205,21 +225,21 @@ async function commitToGithub(jsonContent, commitMessage) {
 function renderProjects() {
     projectsGrid.innerHTML = '';
 
-    // Sort descending by date
-    const sortedProjects = [...projects].sort((a, b) => b.createdAt - a.createdAt);
+    // Pre-calculate lowercased values outside the loop for performance
+    const queryStr = searchQuery.toLowerCase();
+    const tagFilter = activeTag.toLowerCase();
 
-    // Filter projects
-    let filteredProjects = sortedProjects.filter(project => {
+    // Filter first, then sort (reduces the number of elements to sort)
+    let filteredProjects = projects.filter(project => {
         const matchesTag = activeTag === 'all' ||
-            (project.tags && project.tags.some(tag => tag.toLowerCase() === activeTag.toLowerCase()));
+            (project.tags && project.tags.some(tag => tag.toLowerCase() === tagFilter));
 
-        const queryStr = searchQuery.toLowerCase();
         const matchesSearch = project.title.toLowerCase().includes(queryStr) ||
             (project.tags && project.tags.some(tag => tag.toLowerCase().includes(queryStr))) ||
             project.description.toLowerCase().includes(queryStr);
 
         return matchesTag && matchesSearch;
-    });
+    }).sort((a, b) => b.createdAt - a.createdAt);
 
     if (filteredProjects.length === 0) {
         projectsGrid.innerHTML = `
@@ -231,6 +251,9 @@ function renderProjects() {
         `;
         return;
     }
+
+    // Use DocumentFragment to batch DOM inserts and minimize redraws
+    const fragment = document.createDocumentFragment();
 
     filteredProjects.forEach(project => {
         const card = document.createElement('div');
@@ -247,8 +270,9 @@ function renderProjects() {
 
         const imageUrl = project.image || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&q=80';
 
+        // We add an "admin-actions" wrapper so we can toggle visibility with CSS
         card.innerHTML = `
-            <div class="card-actions">
+            <div class="card-actions admin-only-actions" style="display: none;">
                 <button class="action-btn edit-btn" data-id="${project.id}" title="Edit Project">
                     <i class="fa-solid fa-pen"></i>
                 </button>
@@ -278,8 +302,10 @@ function renderProjects() {
             </div>
         `;
 
-        projectsGrid.appendChild(card);
+        fragment.appendChild(card);
     });
+
+    projectsGrid.appendChild(fragment);
 }
 
 // Event Listeners setup
@@ -333,9 +359,13 @@ function setupEventListeners() {
         }
     });
 
+    let searchTimeout;
     searchInput.addEventListener('input', (e) => {
-        searchQuery = e.target.value;
-        renderProjects();
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            searchQuery = e.target.value;
+            renderProjects();
+        }, 300);
     });
 
     tagFilters.addEventListener('click', (e) => {
@@ -360,6 +390,19 @@ function setupEventListeners() {
         document.getElementById('modalTitle').textContent = 'Post a New Project';
         document.getElementById('submitProjectBtn').textContent = 'Publish Project';
     };
+
+    adminLockBtn.addEventListener('click', () => {
+        if (!localStorage.getItem('github_pat')) {
+            openTokenModal();
+        } else {
+            // If they already have a token, ask if they want to log out
+            if (confirm("Are you sure you want to log out of Admin mode?")) {
+                localStorage.removeItem('github_pat');
+                checkAdminMode();
+                renderProjects();
+            }
+        }
+    });
 
     openModalBtn.addEventListener('click', () => {
         if (!localStorage.getItem('github_pat')) {
@@ -400,6 +443,8 @@ function setupEventListeners() {
         // Remove missing config banner and blindly refetch cleanly
         const banner = document.getElementById('github-alert');
         if (banner) banner.remove();
+
+        checkAdminMode();
         fetchProjects();
 
         if (actionToRun) {
