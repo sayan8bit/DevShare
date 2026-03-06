@@ -1,17 +1,18 @@
 [
   {
-    "id": "1772797926293",
-    "title": "demo project",
-    "description": "hjvhj",
+    "id": "1772797861935",
+    "title": "VibeMeet",
+    "description": "Real-time multi-user video calling app using PeerJS and WebRTC.",
     "image": "",
-    "github": "https://github.com",
-    "demo": "https://sayan8bit.github.io",
+    "github": "",
+    "demo": "https://sayan8bit.github.io/VibeMeet/",
     "tags": [
       "html",
       "css",
-      "js"
+      "js",
+      "peerjs."
     ],
-    "createdAt": 1772797926293
+    "createdAt": 1772797861935
   },
   {
     "id": "1",
